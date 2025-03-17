@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Обробка таблиці з DOCX</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to right, #f0f4f8, #d9e2ec);
+            color: #333;
+            text-align: center;
+            padding: 20px;
+        }
+
+        h2 {
+            font-size: 24px;
+            color: #2b6cb0;
+        }
+
+        input[type="file"] {
+            background: #3182ce;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s ease;
+        }
+
+        input[type="file"]:hover {
+            background: #2c5282;
+        }
+
+        #tables {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 300px;
+            margin: 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        th {
+            background: #2b6cb0;
+            color: white;
+            padding: 10px;
+            text-transform: uppercase;
+        }
+
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        tr:nth-child(even) {
+            background: #f8fafc;
+        }
+
+        tr:hover {
+            background: #e2e8f0;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Завантажте DOCX-файл із таблицею</h2>
+    <input type="file" id="fileInput">
+    <div id="tables"></div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function (event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                JSZip.loadAsync(event.target.result)
+                    .then(zip => zip.file("word/document.xml").async("text"))
+                    .then(xmlText => parseDocx(xmlText))
+                    .catch(err => console.error("Помилка обробки файлу:", err));
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function parseDocx(xmlText) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, "application/xml");
+            const rows = xmlDoc.getElementsByTagName("w:tr");
+
+            let data = [];
+            for (let i = 1; i < rows.length; i++) { // Пропускаємо заголовки
+                let cells = rows[i].getElementsByTagName("w:t");
+                if (cells.length === 4) {
+                    data.push({
+                        var1: parseInt(cells[0].textContent.trim()),
+                        var2: parseInt(cells[1].textContent.trim()),
+                        var3: parseInt(cells[2].textContent.trim()),
+                        value: cells[3].textContent.trim()
+                    });
+                }
+            }
+
+            document.getElementById("tables").innerHTML = "";
+            generateTable("Варіант 1", data.map(d => ({ variant: d.var1, value: d.value })));
+            generateTable("Варіант 2", data.map(d => ({ variant: d.var2, value: d.value })).sort((a, b) => a.variant - b.variant));
+            generateTable("Варіант 3", data.map(d => ({ variant: d.var3, value: d.value })).sort((a, b) => a.variant - b.variant));
+        }
+
+        function generateTable(title, data) {
+            const container = document.getElementById("tables");
+            let tableHTML = `<table><thead><tr><th>${title}</th><th>Значення</th></tr></thead><tbody>`;
+
+            data.forEach(row => {
+                tableHTML += `<tr><td>${row.variant}</td><td>${row.value}</td></tr>`;
+            });
+
+            tableHTML += "</tbody></table>";
+            container.innerHTML += tableHTML;
+        }
+    </script>
+</body>
+
+</html>
